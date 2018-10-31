@@ -2,7 +2,7 @@ package com.sfe
 
 case class PathFinder(grid: Grid, start: Coordinate, end: Coordinate, obstacles: List[Coordinate]) {
 
-  def listOfEndCoords(end: Coordinate): List[Coordinate] = List(
+  def listOfEndCoords: List[Coordinate] = List(
     end,
     end + Coordinate(grid.width, 0),
     end - Coordinate(grid.width, 0),
@@ -10,21 +10,23 @@ case class PathFinder(grid: Grid, start: Coordinate, end: Coordinate, obstacles:
     end - Coordinate(0, grid.height))
 
   def findPath: List[Coordinate] = {
-    def loop(currentPosition: Coordinate, closed: List[Coordinate], open: List[WeightedCoord]): List[Coordinate] = {
-      if (listOfEndCoords(end).contains(currentPosition)) closed :+ currentPosition
+
+    import PathFinder._
+
+    def loop(currentPosition: WeightedCoord, closed: List[WeightedCoord], open: List[WeightedCoord]): List[Coordinate] = {
+      if (listOfEndCoords.contains(currentPosition.coord)) extractPathFromClosed(closed :+ currentPosition)
       else {
-        import PathFinder._
-
-        val adjacentCoords: List[Coordinate] = filterEligibleForOpen(findAdjacent(currentPosition), closed ++ obstacles)
-        val newOpen: List[WeightedCoord] = open ++ calculateWeightedCoords(adjacentCoords, currentPosition, listOfEndCoords(end))
-        val newPosition = selectNextPosition(newOpen)
-
-        loop(newPosition, closed :+ currentPosition, newOpen)
-
+        val adjacentCoords: List[Coordinate] = filterEligibleForOpen(findAdjacent(currentPosition.coord), closed.map(wc => wc.coord) ++ obstacles)
+        val newOpen: List[WeightedCoord] = open ++ calculateWeightedCoords(adjacentCoords, currentPosition.coord, start, listOfEndCoords)
+        val newPosition: WeightedCoord = selectNextPosition(newOpen)
+        val newOpenMinusNewPosition: List[WeightedCoord] = newOpen diff List(newPosition)
+        loop(newPosition, closed :+ newPosition, newOpenMinusNewPosition)
       }
     }
 
-    loop(start, Nil, Nil)
+    val weightedStart: WeightedCoord = WeightedCoord(start, (end - start).noOfMoves, start)
+    loop(weightedStart, List(weightedStart), Nil)
+
   }
 
   def path: List[Coordinate] = findPath.map(a => a % Coordinate(grid.width, grid.width))
@@ -42,6 +44,7 @@ case class PathFinder(grid: Grid, start: Coordinate, end: Coordinate, obstacles:
           case Coordinate(0, -1) => loop(path.tail, directions :+ "DOWN", path.head)
           case Coordinate(1, 0) => loop(path.tail, directions :+ "RIGHT", path.head)
           case Coordinate(-1, 0) => loop(path.tail, directions :+ "LEFT", path.head)
+          case Coordinate(0, 0) => loop(path.tail, directions :+ "NONE: position is already destination", path.head)
         }
       }
     }
@@ -60,14 +63,29 @@ object PathFinder {
   def filterEligibleForOpen(possibles: List[Coordinate], invalids: List[Coordinate]): List[Coordinate] =
     possibles diff invalids
 
-  def calculateWeightedCoords(remaining: List[Coordinate], start: Coordinate, listOfEnd: List[Coordinate]): List[WeightedCoord] =
-    remaining.map(a => WeightedCoord(a, calculateWeight(a, start, listOfEnd)))
+  def calculateWeightedCoords(remaining: List[Coordinate], current: Coordinate, start: Coordinate, listOfEnd: List[Coordinate]): List[WeightedCoord] =
+    remaining.map(a => WeightedCoord(a, calculateWeight(a, start, listOfEnd), current))
 
   def calculateWeight(coord: Coordinate, start: Coordinate, listOfEnd: List[Coordinate]): Int =
-    (coord - start).noOfMoves + listOfEnd.map(end => (coord-end).noOfMoves).min
+    (start - coord).noOfMoves + listOfEnd.map(end => (coord - end).noOfMoves).min
 
-  def selectNextPosition(open: List[WeightedCoord]): Coordinate =
-    open.minBy(_.weight).coord
+  def selectNextPosition(open: List[WeightedCoord]): WeightedCoord =
+    open.minBy(_.weight)
+
+  def extractPathFromClosed(closed: List[WeightedCoord]): List[Coordinate] = {
+    val revClosed = closed.reverse
+
+    def loop(closed: List[WeightedCoord], path: List[WeightedCoord], current: WeightedCoord): List[Coordinate] = {
+      if (closed == Nil) path.map(wc => wc.coord)
+      else
+        closed.head match {
+          case WeightedCoord(c, w, p) if c == current.parent => loop(closed.tail, List(WeightedCoord(c, w, p)) ++ path, WeightedCoord(c, w, p))
+          case _ => loop(closed.tail, path, current)
+        }
+    }
+
+    loop(revClosed, List(revClosed.head), revClosed.head)
+  }
 
 }
 

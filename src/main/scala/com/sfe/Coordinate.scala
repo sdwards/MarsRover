@@ -10,8 +10,6 @@ case class Coordinate(x: Int, y: Int) {
 
   def noOfMoves: Int = Coordinate.noOfMoves(this)
 
-  def contains(n: Int): Boolean = Coordinate.contains(this, n)
-
 }
 
 object Coordinate {
@@ -24,15 +22,12 @@ object Coordinate {
 
   def noOfMoves(a: Coordinate): Int = Math.abs(a.x) + Math.abs(a.y)
 
-  def contains(a: Coordinate, n: Int): Boolean = a.x == n || a.y == n
-
-  val identity: Coordinate = Coordinate(0, 0)
+  val Identity: Coordinate = Coordinate(0, 0)
   val Up: Coordinate = Coordinate(0, 1)
   val Down: Coordinate = Coordinate(0, -1)
   val Left: Coordinate = Coordinate(-1, 0)
   val Right: Coordinate = Coordinate(1, 0)
 
-
 }
 
-case class WeightedCoord(coord: Coordinate, weight: Int)
+case class WeightedCoord(coord: Coordinate, weight: Int, parent: Coordinate)
